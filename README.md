@@ -24,3 +24,5 @@ object SparkApp extends App {
 
 1. Pull Request vers la branch `master`
 2. Dépot du rapport et du code source zippé dans cours.cyu.fr (Les accès seront bientôt ouverts)
+
+Date limite de rendu : 7 février 2026
