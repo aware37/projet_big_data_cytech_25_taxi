@@ -89,15 +89,6 @@ Pour quitter `psql` :
 
 ---
 
-## 5. Notes
-
-- Si la table `dim_location` reste vide, vérifie les permissions du fichier CSV dans le conteneur Postgres et utilise la commande suivante dans `psql` :
-  ```sql
-  \copy dim_location(location_id, borough, zone, service_zone) FROM '/tmp/taxi_zone_lookup.csv' DELIMITER ',' CSV HEADER;
-  ```
-
----
-
 **Résumé des commandes principales** :
 
 ```sh
