@@ -1,259 +1,176 @@
-# Projet Big Data Cytech 25
-Pour l'instant voici les exercices finis :
-- ex01_data_retrieval
-- ex02_data_ingestion
-- ex03_sql_table_creation
-- ex04_dashboard
+# Projet Big Data — NYC Yellow Taxi 🚕
+
+Projet Big Data CY Tech 2025 — Pipeline complet d'ingestion, analyse et prédiction sur les données NYC Yellow Taxi Trip Records.
+
+## Exercices
+
+| Exercice | Description | Status |
+|----------|-------------|--------|
+| [ex01](ex01_data_retrieval/) | Récupération des données (Scala → MinIO) | ✅ |
+| [ex02](ex02_data_ingestion/) | Ingestion Spark (MinIO → PostgreSQL + Parquet nettoyé) | ✅ |
+| [ex03](ex03_sql_table_creation/) | Création du schéma en étoile (SQL) | ✅ |
+| [ex04](ex04_dashboard/) | Dashboard analytique (Streamlit + Plotly) | ✅ |
+| [ex05](ex05_ml_prediction_service/) | Prédiction ML du montant (scikit-learn) | ✅ |
+| [ex06](ex06_airflow/) | Orchestration Airflow | ⬜ |
+
+## Architecture
+
+```
+NYC TLC (web)
+    ↓  ex01 (Scala/SBT)
+MinIO (S3) — raw/
+    ↓  ex02 (Spark)
+    ├── MinIO — cleaned/          → ex05 (ML)
+    └── PostgreSQL — fact_trips   → ex04 (Dashboard)
+            ↑
+       ex03 (DDL + dimensions)
+```
 
 ## Prérequis
 
-- Docker et Docker Compose installés
-- SBT installé
-- Python 3.8+
-- `uv` installé ([Installation](https://github.com/astral-sh/uv#installation))
+- **Docker** et **Docker Compose**
+- **SBT** (Scala Build Tool)
+- **Python 3.10+**
+- **uv** — gestionnaire de packages Python
 
-  Si `uv` n'est pas installé, installe-le avec :
-  ```sh
-  curl -LsSf https://astral.sh/uv/install.sh | sh
-  ```
+```sh
+# Installer uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
 ---
 
-## 0. Initialiser l'environnement Python
+## Démarrage rapide
 
-À la racine du projet, initialise `uv` :
-
-```sh
-uv init
-uv sync
-```
-
-Cela crée `.venv` et installe les dépendances définies dans `pyproject.toml`.
-
-### Ajouter des dépendances
-
-Ajouter de nouvelle dépendance Python dans `pyproject.toml` :
-
-```toml
-[project]
-dependencies = [
-    "streamlit",
-    "pandas",
-    "psycopg2-binary",
-    "matplotlib",
-    "nouvelle-dependance>=1.0.0",
-]
-```
-
-Puis synchronise :
+### 1. Initialiser l'environnement Python
 
 ```sh
 uv sync
 ```
 
----
-
-## 1. Lancer l'infrastructure
-
-À la racine du projet, lance :
+### 2. Lancer l'infrastructure Docker
 
 ```sh
 sudo docker-compose up -d
 ```
 
-Cela démarre :
-- MinIO (stockage)
-- PostgreSQL (base de données)
-- Spark
+Services démarrés :
+- **MinIO** — stockage S3 : [http://localhost:9001](http://localhost:9001) (`minio` / `minio123`)
+- **PostgreSQL** — base `bigdata_db` : port 5432 (`postgres` / `postgres`)
+- **Spark** — master + 2 workers
 
----
-
-## 2. Configurer MinIO
-
-1. Ouvre [http://localhost:9000](http://localhost:9000) dans ton navigateur.
-2. Connecte-toi avec :
-   - **Identifiant** : `minio`
-   - **Mot de passe** : `minio123`
-3. Crée un bucket nommé :  
-   ```
-   nyc-yellow-tripdata
-   ```
-
----
-
-## 3. Télécharger et envoyer les données sur MinIO
-
-Dans le dossier `ex01_data_retrieval` :
+### 3. Télécharger les données (ex01)
 
 ```sh
 cd ex01_data_retrieval
-sbt run
+sbt "run --start 2022-01 --end 2022-12"
+cd ..
 ```
 
-Cela télécharge le fichier Parquet et l'upload automatiquement dans le bucket MinIO.
+### 4. Vérifier les tables de dimension (ex03)
 
----
-
-## 4. Vérifier la base de données PostgreSQL
-
-Reviens à la racine du projet, puis connecte-toi à la base :
+Les tables sont créées automatiquement au premier lancement du conteneur PostgreSQL.
 
 ```sh
 sudo docker exec -it postgres psql -U postgres -d bigdata_db
 ```
 
-### Tester les tables de dimension
-
-Exécute les requêtes suivantes dans le client `psql` :
-
 ```sql
--- Nombre d'emplacements importés
-SELECT count(*) FROM dim_location;
-
--- Afficher quelques emplacements
-SELECT * FROM dim_location LIMIT 5;
-
--- Afficher quelques vendeurs
-SELECT * FROM dim_vendor LIMIT 5;
-
--- Afficher quelques types de paiement
-SELECT * FROM dim_payment_type LIMIT 5;
-
--- Afficher quelques codes tarifaires
-SELECT * FROM dim_rate_code LIMIT 5;
-```
-
-Pour quitter `psql` :
-
-```
+SELECT COUNT(*) FROM dim_location;      -- 265
+SELECT COUNT(*) FROM dim_vendor;        -- 5
+SELECT COUNT(*) FROM dim_payment_type;  -- 7
+SELECT COUNT(*) FROM dim_rate_code;     -- 7
 \q
 ```
 
----
-
-## 5. Ingérer les données nettoyées dans PostgreSQL
-
-Dans le dossier `ex02_data_ingestion` :
+### 5. Ingérer les données (ex02)
 
 ```sh
 cd ex02_data_ingestion
-sbt run
-```
-
-Cela :
-- Lit les données brutes depuis MinIO
-- Nettoie les données (Branche 1)
-- Les sauvegarde en Parquet nettoyé dans MinIO (Branche 1)
-- Les insère dans la table `fact_trips` de PostgreSQL (Branche 2)
-
-### Vérifier l'insertion des données
-
-Reviens à la racine et connecte-toi à la base :
-
-```sh
+sbt "run --start 2022-01 --end 2022-12"
 cd ..
-sudo docker exec -it postgres psql -U postgres -d bigdata_db
 ```
 
-Puis vérifie que les données ont bien été insérées :
+Résultat : ~39.6M lignes dans `fact_trips` + parquets nettoyés dans MinIO.
 
-```sql
--- Nombre de trajets insérés
-SELECT COUNT(*) FROM fact_trips;
-
--- Afficher quelques trajets
-SELECT * FROM fact_trips LIMIT 5;
-
--- Statistiques par vendor
-SELECT v.vendor_name, COUNT(*) as nb_trajets, SUM(f.total_amount) as revenue
-FROM fact_trips f
-JOIN dim_vendor v ON f.vendor_id = v.vendor_id
-GROUP BY v.vendor_name;
-```
-
-Pour quitter `psql` :
-
-```
-\q
-```
-
----
-
-## 6. Lancer le Dashboard Streamlit
-
-Lance le dashboard depuis la racine du projet :
+### 6. Lancer le dashboard (ex04)
 
 ```sh
 cd ex04_dashboard
 uv run streamlit run app.py
 ```
 
-Le dashboard s'ouvre automatiquement sur [http://localhost:8501](http://localhost:8501) 🎉
+→ [http://localhost:8501](http://localhost:8501)
 
----
-
-**Résumé des commandes principales** :
+### 7. Entraîner le modèle ML (ex05)
 
 ```sh
-# 0. Initialiser l'environnement Python (une seule fois)
-uv init
+PYTHONPATH=ex05_ml_prediction_service/src uv run python \
+  ex05_ml_prediction_service/scripts/train.py \
+  --input s3://nyc-yellow-tripdata/cleaned/yellow_tripdata_2022-01/ \
+         s3://nyc-yellow-tripdata/cleaned/yellow_tripdata_2022-02/ \
+         s3://nyc-yellow-tripdata/cleaned/yellow_tripdata_2022-03/ \
+         s3://nyc-yellow-tripdata/cleaned/yellow_tripdata_2022-04/ \
+         s3://nyc-yellow-tripdata/cleaned/yellow_tripdata_2022-05/ \
+         s3://nyc-yellow-tripdata/cleaned/yellow_tripdata_2022-06/ \
+         s3://nyc-yellow-tripdata/cleaned/yellow_tripdata_2022-07/ \
+         s3://nyc-yellow-tripdata/cleaned/yellow_tripdata_2022-08/ \
+         s3://nyc-yellow-tripdata/cleaned/yellow_tripdata_2022-09/ \
+         s3://nyc-yellow-tripdata/cleaned/yellow_tripdata_2022-10/ \
+         s3://nyc-yellow-tripdata/cleaned/yellow_tripdata_2022-11/ \
+         s3://nyc-yellow-tripdata/cleaned/yellow_tripdata_2022-12/
+```
+
+### 8. Prédictions ML (ex05)
+
+```sh
+PYTHONPATH=ex05_ml_prediction_service/src uv run python \
+  ex05_ml_prediction_service/scripts/predict.py \
+  --input s3://nyc-yellow-tripdata/cleaned/yellow_tripdata_2022-12/ \
+  --output ex05_ml_prediction_service/artifacts/predictions.csv \
+  --max-rows 100000
+```
+
+---
+
+## Résumé des commandes
+
+```sh
+# 0. Environnement Python
 uv sync
 
-# 1. Lancer l'infrastructure
+# 1. Infrastructure
 sudo docker-compose up -d
 
-# 2. Configurer MinIO (via interface web http://localhost:9000)
+# 2. Téléchargement des données
+cd ex01_data_retrieval && sbt "run --start 2022-01 --end 2022-12" && cd ..
 
-# 3. Télécharger les données
-cd ex01_data_retrieval
-sbt run
-cd ..
+# 3. Ingestion Spark
+cd ex02_data_ingestion && sbt "run --start 2022-01 --end 2022-12" && cd ..
 
-# 4. Vérifier PostgreSQL
-sudo docker exec -it postgres psql -U postgres -d bigdata_db
-# (puis requêtes SQL ci-dessus)
+# 4. Dashboard
+cd ex04_dashboard && uv run streamlit run app.py
 
-# 5. Insérer les données nettoyées
-cd ex02_data_ingestion
-sbt run
-cd ..
-
-# 6. Vérifier l'insertion
-sudo docker exec -it postgres psql -U postgres -d bigdata_db
-# (puis requêtes SQL ci-dessus)
-
-# 7. Lancer le dashboard
-cd ex04_dashboard
-uv run streamlit run app.py
+# 5. ML — entraînement (voir ex05/README.md pour la commande complète)
+# 6. ML — prédiction (voir ex05/README.md)
 ```
 
 ---
 
-## Code minimal pour Spark + MinIO
+## Stack technique
 
-```scala
-import org.apache.spark.sql.{SparkSession, DataFrame}
+| Technologie      | Usage                              |
+|------------------|------------------------------------|
+| Scala 2.13 / SBT | Téléchargement + ETL Spark        |
+| Apache Spark 3.5  | Traitement distribué des données  |
+| MinIO             | Stockage S3-compatible (parquets) |
+| PostgreSQL 15     | Data Warehouse (star schema)      |
+| Streamlit + Plotly| Dashboard interactif              |
+| scikit-learn      | Modèle ML (HGBR)                 |
+| Docker Compose    | Orchestration des services        |
+| uv                | Gestion des dépendances Python    |
 
-object SparkApp extends App {
-  val spark = SparkSession.builder()
-    .appName("SparkApp")
-    .master("local")
-    .config("spark.hadoop.fs.s3a.access.key", "minio")
-    .config("spark.hadoop.fs.s3a.secret.key", "minio123")
-    .config("spark.hadoop.fs.s3a.endpoint", "http://localhost:9000/")
-    .config("spark.hadoop.fs.s3a.path.style.access", "true")
-    .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
-    .config("spark.hadoop.fs.s3a.attempts.maximum", "1")
-    .config("spark.hadoop.fs.s3a.connection.establish.timeout", "6000")
-    .config("spark.hadoop.fs.s3a.connection.timeout", "5000")
-    .getOrCreate()
-  spark.sparkContext.setLogLevel("WARN")
-}
-```
-
----
-
-## Nettoyage et Dépannage
+## Dépannage
 
 ### Vider MinIO (si stockage plein)
 
@@ -261,12 +178,10 @@ object SparkApp extends App {
 sudo docker exec -it minio mc rb --force minio/nyc-yellow-tripdata
 ```
 
-### Redémarrer la BDD PostgreSQL
+### Redémarrer PostgreSQL
 
 ```sh
-sudo docker-compose down postgres
-sudo docker-compose up -d postgres
-sleep 10
+sudo docker-compose restart postgres
 ```
 
 ### Tout recommencer
@@ -282,6 +197,6 @@ sudo docker-compose up -d
 ## Modalités de rendu
 
 1. Pull Request vers la branch `master`
-2. Dépot du rapport et du code source zippé dans cours.cyu.fr (Les accès seront bientôt ouverts)
+2. Dépôt du rapport et du code source zippé dans cours.cyu.fr
 
-Date limite de rendu : 7 février 2026
+**Date limite : 7 février 2026**

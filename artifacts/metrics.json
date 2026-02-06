@@ -1,0 +1,16 @@
+{
+  "rmse": 13.56257679770057,
+  "n_rows": 36817088,
+  "features": [
+    "passenger_count",
+    "trip_distance",
+    "trip_duration_min",
+    "pickup_hour",
+    "pickup_dayofweek",
+    "pickup_day",
+    "rate_code_id",
+    "payment_type_id",
+    "pu_location_id",
+    "do_location_id"
+  ]
+}

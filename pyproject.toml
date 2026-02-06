@@ -8,5 +8,15 @@ dependencies = [
     "streamlit",
     "pandas",
     "psycopg2-binary",
-    "matplotlib"
+    "matplotlib",
+    "apache-airflow",
+    "scikit-learn",
+    "minio",
+    "pyarrow",
+    "joblib",
+    "numpy",
+    "pytest",
+    "flake8",
+    "s3fs>=2026.2.0",
+    "plotly>=6.5.2",
 ]

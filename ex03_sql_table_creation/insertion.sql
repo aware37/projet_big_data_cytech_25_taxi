@@ -3,6 +3,7 @@
 INSERT INTO dim_vendor (vendor_id, vendor_name) VALUES
 (1, 'Creative Mobile Technologies, LLC'),
 (2, 'Curb Mobility, LLC'),
+(5, 'Uber'),
 (6, 'Myle Technologies Inc'),
 (7, 'Helix');
 
